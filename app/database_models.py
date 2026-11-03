@@ -1,7 +1,4 @@
-"""SQLAlchemy 2.x models for the Inventory Management System.
 
-The models use PostgreSQL-specific ENUM, UUID and JSONB types.
-"""
 
 import uuid
 from datetime import date, datetime

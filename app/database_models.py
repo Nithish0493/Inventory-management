@@ -631,43 +631,73 @@ class StockHistory(Base):
 class PriceHistory(Base):
     __tablename__ = "price_history"
     __table_args__ = (
-        CheckConstraint(
-            "old_cost_price IS NULL OR old_cost_price >= 0",
-            name="chk_old_cost_price",
-        ),
-        CheckConstraint(
-            "new_cost_price IS NULL OR new_cost_price >= 0",
-            name="chk_new_cost_price",
-        ),
-        CheckConstraint(
-            "old_sale_price IS NULL OR old_sale_price >= 0",
-            name="chk_old_sale_price",
-        ),
-        CheckConstraint(
-            "new_sale_price IS NULL OR new_sale_price >= 0",
-            name="chk_new_sale_price",
-        ),
-        CheckConstraint(
-            "(old_cost_price IS NULL AND new_cost_price IS NULL) "
-            "OR (old_cost_price IS NOT NULL AND new_cost_price IS NOT NULL)",
-            name="chk_cost_price_pair",
-        ),
-        CheckConstraint(
-            "(old_sale_price IS NULL AND new_sale_price IS NULL) "
-            "OR (old_sale_price IS NOT NULL AND new_sale_price IS NOT NULL)",
-            name="chk_sale_price_pair",
-        ),
-        CheckConstraint(
-            "old_cost_price IS NOT NULL OR old_sale_price IS NOT NULL",
-            name="chk_price_history_change",
-        ),
-        CheckConstraint(
-            "old_cost_price IS DISTINCT FROM new_cost_price "
-            "OR old_sale_price IS DISTINCT FROM new_sale_price",
-            name="chk_price_history_actual_change",
-        ),
-        Index("idx_price_history_product", "product_id"),
-    )
+
+    # 1. All prices must be NULL or non-negative.
+    CheckConstraint(
+        """
+        (old_cost_price IS NULL OR old_cost_price >= 0)
+        AND
+        (new_cost_price IS NULL OR new_cost_price >= 0)
+        AND
+        (old_sale_price IS NULL OR old_sale_price >= 0)
+        AND
+        (new_sale_price IS NULL OR new_sale_price >= 0)
+        """,
+        name="chk_price_history_non_negative",
+    ),
+
+    # 2. Cost price:
+    # Either both values are NULL,
+    # OR both values are present and different.
+    CheckConstraint(
+        """
+        (
+            old_cost_price IS NULL
+            AND new_cost_price IS NULL
+        )
+        OR
+        (
+            old_cost_price IS NOT NULL
+            AND new_cost_price IS NOT NULL
+            AND old_cost_price IS DISTINCT FROM new_cost_price
+        )
+        """,
+        name="chk_cost_price_pair",
+    ),
+
+    # 3. Sale price:
+    # Either both values are NULL,
+    # OR both values are present and different.
+    CheckConstraint(
+        """
+        (
+            old_sale_price IS NULL
+            AND new_sale_price IS NULL
+        )
+        OR
+        (
+            old_sale_price IS NOT NULL
+            AND new_sale_price IS NOT NULL
+            AND old_sale_price IS DISTINCT FROM new_sale_price
+        )
+        """,
+        name="chk_sale_price_pair",
+    ),
+
+    # 4. At least one type of price must have changed.
+    CheckConstraint(
+        """
+        old_cost_price IS NOT NULL
+        OR
+        old_sale_price IS NOT NULL
+        """,
+        name="chk_price_history_change",
+    ),
+
+    # 5. Index for product-wise price history retrieval.
+    Index("idx_price_history_product", "product_id"),
+
+)
 
     price_hist_id: Mapped[int] = mapped_column(
         Integer,
@@ -736,7 +766,6 @@ class UserHistory(Base):
             name="chk_user_history_data",
         ),
         Index("idx_user_history_user", "user_id"),
-        Index("idx_user_history_changed_at", "changed_at"),
     )
 
     user_hist_id: Mapped[int] = mapped_column(
@@ -780,7 +809,6 @@ class CustomerHistory(Base):
             name="chk_customer_history_data",
         ),
         Index("idx_customer_history_customer", "customer_id"),
-        Index("idx_customer_history_changed_at", "changed_at"),
     )
 
     customer_hist_id: Mapped[int] = mapped_column(
@@ -801,7 +829,7 @@ class CustomerHistory(Base):
         ForeignKey("users.user_id"),
         nullable=True,
     )
-    changed_at: Mapped[datetime] = mapped_column(
+    updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         nullable=False,
         server_default=func.current_timestamp(),

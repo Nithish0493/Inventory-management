@@ -19,15 +19,8 @@ from sqlalchemy import (
     text,
 )
 from sqlalchemy.dialects.postgresql import ENUM, JSONB, UUID
-from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
-
-
-# ---------------------------------------------------------------------------
-# BASE CLASS
-# ---------------------------------------------------------------------------
-
-class Base(DeclarativeBase):
-    """Base class inherited by all SQLAlchemy ORM models."""
+from sqlalchemy.orm import Mapped, mapped_column
+from app.database import Base
 
 
 # ---------------------------------------------------------------------------
@@ -85,16 +78,6 @@ record_action_enum = ENUM(
 )
 
 
-# ---------------------------------------------------------------------------
-# COMMON AUDIT-COLUMN CONVENTION
-#
-# For mutable business tables:
-# - created_at is populated by PostgreSQL on INSERT (server_default).
-# - updated_at is NULL on INSERT and is populated by SQLAlchemy on UPDATE
-#   (onupdate). It does not run for UPDATE statements issued outside SQLAlchemy.
-# - updated_by is NULL on INSERT and must be assigned by application logic
-#   to the authenticated user's UUID when updating a record.
-# ---------------------------------------------------------------------------
 
 
 # ---------------------------------------------------------------------------
@@ -113,6 +96,7 @@ class User(Base):
     name: Mapped[str] = mapped_column(String(255), nullable=False)
     phone: Mapped[str | None] = mapped_column(String(30), nullable=True)
     email: Mapped[str] = mapped_column(String(255), nullable=False, unique=True)
+    address: Mapped[str | None] = mapped_column(String(255), nullable=True)
     role: Mapped[str] = mapped_column(user_role_enum, nullable=False)
     login_id: Mapped[str] = mapped_column(String(255), nullable=False, unique=True)
     password_hash: Mapped[str] = mapped_column(String(255), nullable=False)

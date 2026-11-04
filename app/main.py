@@ -1,5 +1,7 @@
 
-from fastapi import FastAPI
+from fastapi import FastAPI,Depends
+from sqlalchemy.orm import Session
+from sqlalchemy import select
 
 from app.database import get_db
 from app.database_models import Product
@@ -16,4 +18,3 @@ def home():
     return {"message": "Inventory Management API is running"}
 
 
-@app.get("/products")

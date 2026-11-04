@@ -13,6 +13,20 @@ def main():
 
     try:
         print("Session created successfully")
+
+        user=User(
+            name='nithish',
+            phone=1234567890,
+            email='nithish@gmail.com',
+            role='admin',
+            login_id='nithish1',
+            password_hash='nithish@123'
+        )
+
+        db.add(user)
+        db.flush()
+
+
         statement = select(User).where(User.name== "nithish")
 
         user = db.execute(statement).scalar_one_or_none()

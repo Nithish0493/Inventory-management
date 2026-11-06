@@ -19,7 +19,7 @@ from sqlalchemy import (
     text,
 )
 from sqlalchemy.dialects.postgresql import ENUM, JSONB, UUID
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.database import Base
 
 
@@ -125,6 +125,10 @@ class User(Base):
         onupdate=func.current_timestamp(),
     )
 
+    created_by_user: Mapped["User | None"] = relationship("User",foreign_keys=[created_by],remote_side=[user_id],)
+
+    updated_by_user: Mapped["User | None"] = relationship("User",foreign_keys=[updated_by],remote_side=[user_id],)
+
 
 # ---------------------------------------------------------------------------
 # 2. CUSTOMERS
@@ -166,7 +170,9 @@ class Customer(Base):
         onupdate=func.current_timestamp(),
     )
 
-
+    created_by_user = relationship("User",foreign_keys=[created_by])
+    
+    updated_by_user = relationship("User",foreign_keys=[updated_by])
 # ---------------------------------------------------------------------------
 # 3. SUPPLIERS
 # ---------------------------------------------------------------------------
@@ -214,6 +220,9 @@ class Supplier(Base):
         onupdate=func.current_timestamp(),
     )
 
+    created_by_user = relationship("User",foreign_keys=[created_by])
+    
+    updated_by_user = relationship("User",foreign_keys=[updated_by])
 
 # ---------------------------------------------------------------------------
 # 4. PRODUCT CATEGORIES
@@ -260,7 +269,9 @@ class ProductCategory(Base):
         onupdate=func.current_timestamp(),
     )
 
-
+    created_by_user = relationship("User",foreign_keys=[created_by])
+    
+    updated_by_user = relationship("User",foreign_keys=[updated_by])
 # ---------------------------------------------------------------------------
 # 5. PRODUCTS
 # ---------------------------------------------------------------------------
@@ -322,7 +333,7 @@ class Product(Base):
         ForeignKey("users.user_id"),
         nullable=True,
     )
-
+    
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         nullable=False,
@@ -334,7 +345,9 @@ class Product(Base):
         onupdate=func.current_timestamp(),
     )
 
-
+    created_by_user = relationship("User",foreign_keys=[created_by])
+        
+    updated_by_user = relationship("User",foreign_keys=[updated_by])
 # ---------------------------------------------------------------------------
 # 6. PURCHASE ORDERS
 # ---------------------------------------------------------------------------
@@ -389,7 +402,9 @@ class PurchaseOrder(Base):
         onupdate=func.current_timestamp(),
     )
 
-
+    created_by_user = relationship("User",foreign_keys=[created_by])
+        
+    updated_by_user = relationship("User",foreign_keys=[updated_by])
 # ---------------------------------------------------------------------------
 # 7. PURCHASE ITEMS
 # ---------------------------------------------------------------------------
@@ -479,7 +494,9 @@ class SaleOrder(Base):
         onupdate=func.current_timestamp(),
     )
 
-
+    created_by_user = relationship("User",foreign_keys=[created_by])
+        
+    updated_by_user = relationship("User",foreign_keys=[updated_by])
 # ---------------------------------------------------------------------------
 # 9. SALE ITEMS
 # ---------------------------------------------------------------------------
@@ -607,7 +624,7 @@ class StockHistory(Base):
     )
     remarks: Mapped[str | None] = mapped_column(Text, nullable=True)
 
-
+    updated_by_user = relationship("User",foreign_keys=[updated_by])
 # ---------------------------------------------------------------------------
 # 11. PRICE HISTORY
 # ---------------------------------------------------------------------------
@@ -716,7 +733,7 @@ class PriceHistory(Base):
     )
     remarks: Mapped[str | None] = mapped_column(Text, nullable=True)
 
-
+    updated_by_user = relationship("User",foreign_keys=[updated_by])
 # ---------------------------------------------------------------------------
 # 12. USER HISTORY
 # ---------------------------------------------------------------------------
@@ -774,7 +791,7 @@ class UserHistory(Base):
     )
     remarks: Mapped[str | None] = mapped_column(Text, nullable=True)
 
-
+    updated_by_user = relationship("User",foreign_keys=[updated_by])
 # ---------------------------------------------------------------------------
 # 13. CUSTOMER HISTORY
 # ---------------------------------------------------------------------------
@@ -814,3 +831,5 @@ class CustomerHistory(Base):
         server_default=func.current_timestamp(),
     )
     remarks: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+    updated_by_user = relationship("User",foreign_keys=[updated_by])

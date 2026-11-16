@@ -10,7 +10,7 @@ from alembic import context
 from sqlalchemy.dialects import postgresql
 from app.database import engine, Base
 
-import app.database_models
+import tests.database_models
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]

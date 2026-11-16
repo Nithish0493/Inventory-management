@@ -15,11 +15,12 @@ from sqlalchemy import (
     Numeric,
     String,
     Text,
+    UniqueConstraint,
     func,
     text,
 )
 from sqlalchemy.dialects.postgresql import ENUM, JSONB, UUID
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.database import Base
 
 
@@ -91,7 +92,7 @@ class User(Base):
     )
 
     name: Mapped[str] = mapped_column(String(255), nullable=False)
-    phone: Mapped[str | None] = mapped_column(String(30), nullable=True)
+    phone: Mapped[str] = mapped_column(String(10), nullable=False)
     email: Mapped[str] = mapped_column(String(255), nullable=False, unique=True)
     role: Mapped[str] = mapped_column(user_role_enum, nullable=False)
     login_id: Mapped[str] = mapped_column(String(255), nullable=False, unique=True)
@@ -125,6 +126,10 @@ class User(Base):
         onupdate=func.current_timestamp(),
     )
 
+    created_by_user: Mapped["User | None"] = relationship("User",foreign_keys=[created_by],remote_side=[user_id],)
+
+    updated_by_user: Mapped["User | None"] = relationship("User",foreign_keys=[updated_by],remote_side=[user_id],)
+
 
 # ---------------------------------------------------------------------------
 # 2. CUSTOMERS
@@ -140,9 +145,9 @@ class Customer(Base):
     )
 
     customer_name: Mapped[str] = mapped_column(String(255), nullable=False)
-    phone: Mapped[str | None] = mapped_column(String(30), nullable=True)
-    email: Mapped[str | None] = mapped_column(String(255), nullable=True)
-    address: Mapped[str | None] = mapped_column(Text, nullable=True)
+    phone: Mapped[str] = mapped_column(String(10), nullable=False)
+    email: Mapped[str] = mapped_column(String(255), nullable=False)
+    address: Mapped[str] = mapped_column(Text, nullable=False)
 
     created_by: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True),
@@ -166,7 +171,9 @@ class Customer(Base):
         onupdate=func.current_timestamp(),
     )
 
-
+    created_by_user = relationship("User",foreign_keys=[created_by])
+    
+    updated_by_user = relationship("User",foreign_keys=[updated_by])
 # ---------------------------------------------------------------------------
 # 3. SUPPLIERS
 # ---------------------------------------------------------------------------
@@ -181,10 +188,10 @@ class Supplier(Base):
     )
 
     supplier_name: Mapped[str] = mapped_column(String(255), nullable=False)
-    contact_person: Mapped[str | None] = mapped_column(String(150), nullable=True)
-    address: Mapped[str | None] = mapped_column(Text, nullable=True)
-    phone: Mapped[str | None] = mapped_column(String(30), nullable=True)
-    email: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    contact_person: Mapped[str] = mapped_column(String(150), nullable=False)
+    address: Mapped[str] = mapped_column(Text, nullable=False)
+    phone: Mapped[str] = mapped_column(String(10), nullable=False)
+    email: Mapped[str] = mapped_column(String(255), nullable=False)
 
     status: Mapped[str] = mapped_column(
         record_status_enum,
@@ -214,6 +221,9 @@ class Supplier(Base):
         onupdate=func.current_timestamp(),
     )
 
+    created_by_user = relationship("User",foreign_keys=[created_by])
+    
+    updated_by_user = relationship("User",foreign_keys=[updated_by])
 
 # ---------------------------------------------------------------------------
 # 4. PRODUCT CATEGORIES
@@ -260,7 +270,9 @@ class ProductCategory(Base):
         onupdate=func.current_timestamp(),
     )
 
-
+    created_by_user = relationship("User",foreign_keys=[created_by])
+    
+    updated_by_user = relationship("User",foreign_keys=[updated_by])
 # ---------------------------------------------------------------------------
 # 5. PRODUCTS
 # ---------------------------------------------------------------------------
@@ -316,13 +328,12 @@ class Product(Base):
         ForeignKey("users.user_id"),
         nullable=False,
     )
-    # Renamed from last_updated_by to updated_by for consistency.
     updated_by: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True),
         ForeignKey("users.user_id"),
         nullable=True,
     )
-
+    
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         nullable=False,
@@ -334,7 +345,11 @@ class Product(Base):
         onupdate=func.current_timestamp(),
     )
 
+    created_by_user = relationship("User",foreign_keys=[created_by])
+        
+    updated_by_user = relationship("User",foreign_keys=[updated_by])
 
+    category = relationship("ProductCategory")
 # ---------------------------------------------------------------------------
 # 6. PURCHASE ORDERS
 # ---------------------------------------------------------------------------
@@ -344,29 +359,22 @@ class PurchaseOrder(Base):
     __table_args__ = (
         Index("idx_purchase_orders_supplier", "supplier_id"),
     )
-
     purchase_id: Mapped[int] = mapped_column(
         Integer,
         primary_key=True,
         autoincrement=True,
     )
-
     supplier_id: Mapped[int] = mapped_column(
         Integer,
         ForeignKey("suppliers.supplier_id"),
         nullable=False,
     )
-    purchase_date: Mapped[date] = mapped_column(
-        Date,
-        nullable=False,
-        server_default=func.current_date(),
-    )
+    purchase_date: Mapped[date | None] = mapped_column(Date,nullable=True)
     status: Mapped[str] = mapped_column(
         purchase_status_enum,
         nullable=False,
         server_default=text("'draft'::purchase_status"),
     )
-
     created_by: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True),
         ForeignKey("users.user_id"),
@@ -377,7 +385,6 @@ class PurchaseOrder(Base):
         ForeignKey("users.user_id"),
         nullable=True,
     )
-
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         nullable=False,
@@ -388,8 +395,15 @@ class PurchaseOrder(Base):
         nullable=True,
         onupdate=func.current_timestamp(),
     )
+    created_by_user = relationship("User",foreign_keys=[created_by])
+        
+    updated_by_user = relationship("User",foreign_keys=[updated_by])
 
-
+    supplier = relationship("Supplier")
+    items = relationship(
+        "PurchaseItem",
+        back_populates="purchase_order",
+    )
 # ---------------------------------------------------------------------------
 # 7. PURCHASE ITEMS
 # ---------------------------------------------------------------------------
@@ -401,8 +415,12 @@ class PurchaseItem(Base):
         CheckConstraint("unit_price >= 0", name="chk_purchase_items_unit_price"),
         Index("idx_purchase_items_purchase", "purchase_id"),
         Index("idx_purchase_items_product", "product_id"),
+        UniqueConstraint(
+    "purchase_id",
+    "product_id",
+    name="uq_purchase_items_purchase_product"
     )
-
+    )
     purchase_item_id: Mapped[int] = mapped_column(
         Integer,
         primary_key=True,
@@ -424,8 +442,11 @@ class PurchaseItem(Base):
         Numeric(22, 2),
         Computed("quantity * unit_price", persisted=True),
     )
-
-
+    product = relationship("Product")
+    purchase_order = relationship(
+        "PurchaseOrder",
+        back_populates="items",
+    )
 # ---------------------------------------------------------------------------
 # 8. SALE ORDERS
 # ---------------------------------------------------------------------------
@@ -446,10 +467,9 @@ class SaleOrder(Base):
         ForeignKey("customers.customer_id"),
         nullable=False,
     )
-    sale_date: Mapped[date] = mapped_column(
+    sale_date: Mapped[date | None] = mapped_column(
         Date,
-        nullable=False,
-        server_default=func.current_date(),
+        nullable=True
     )
     status: Mapped[str] = mapped_column(
         sale_status_enum,
@@ -479,7 +499,16 @@ class SaleOrder(Base):
         onupdate=func.current_timestamp(),
     )
 
+    created_by_user = relationship("User",foreign_keys=[created_by])
+        
+    updated_by_user = relationship("User",foreign_keys=[updated_by])
 
+    customer = relationship("Customer")
+
+    items = relationship(
+        "SaleItem",
+        back_populates="sale_order"
+    )
 # ---------------------------------------------------------------------------
 # 9. SALE ITEMS
 # ---------------------------------------------------------------------------
@@ -491,6 +520,11 @@ class SaleItem(Base):
         CheckConstraint("unit_price >= 0", name="chk_sale_items_unit_price"),
         Index("idx_sale_items_sale", "sale_id"),
         Index("idx_sale_items_product", "product_id"),
+        UniqueConstraint(
+            "sale_id",
+            "product_id",
+            name="uq_sale_items_sale_product"
+        )
     )
 
     sale_item_id: Mapped[int] = mapped_column(
@@ -501,12 +535,12 @@ class SaleItem(Base):
     sale_id: Mapped[int] = mapped_column(
         Integer,
         ForeignKey("sale_orders.sale_id"),
-        nullable=False,
+        nullable=False
     )
     product_id: Mapped[int] = mapped_column(
         Integer,
         ForeignKey("products.product_id"),
-        nullable=False,
+        nullable=False
     )
     quantity: Mapped[int] = mapped_column(Integer, nullable=False)
     unit_price: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False)
@@ -515,7 +549,13 @@ class SaleItem(Base):
         Computed("quantity * unit_price", persisted=True),
     )
 
+        # Relationships
+    sale_order = relationship(
+        "SaleOrder",
+        back_populates="items"
+    )
 
+    product = relationship("Product")
 # ---------------------------------------------------------------------------
 # 10. STOCK HISTORY
 # ---------------------------------------------------------------------------
@@ -607,7 +647,12 @@ class StockHistory(Base):
     )
     remarks: Mapped[str | None] = mapped_column(Text, nullable=True)
 
+    updated_by_user = relationship("User",foreign_keys=[updated_by])
+    product = relationship("Product")
 
+    purchase_item = relationship("PurchaseItem")
+
+    sale_item = relationship("SaleItem")
 # ---------------------------------------------------------------------------
 # 11. PRICE HISTORY
 # ---------------------------------------------------------------------------
@@ -666,6 +711,7 @@ class PriceHistory(Base):
         )
         """,
         name="chk_sale_price_pair",
+
     ),
 
     # 4. At least one type of price must have changed.
@@ -716,7 +762,8 @@ class PriceHistory(Base):
     )
     remarks: Mapped[str | None] = mapped_column(Text, nullable=True)
 
-
+    updated_by_user = relationship("User",foreign_keys=[updated_by])
+    product = relationship("Product")
 # ---------------------------------------------------------------------------
 # 12. USER HISTORY
 # ---------------------------------------------------------------------------
@@ -774,7 +821,11 @@ class UserHistory(Base):
     )
     remarks: Mapped[str | None] = mapped_column(Text, nullable=True)
 
-
+    updated_by_user = relationship("User",foreign_keys=[updated_by])
+    user = relationship(
+    "User",
+    foreign_keys=[user_id]
+)
 # ---------------------------------------------------------------------------
 # 13. CUSTOMER HISTORY
 # ---------------------------------------------------------------------------
@@ -802,11 +853,11 @@ class CustomerHistory(Base):
     )
     action: Mapped[str] = mapped_column(record_action_enum, nullable=False)
     old_data: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
-    new_data: Mapped[dict] = mapped_column(JSONB, nullable=False)
-    updated_by: Mapped[uuid.UUID | None] = mapped_column(
+    new_data: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+    updated_by: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True),
         ForeignKey("users.user_id"),
-        nullable=True,
+        nullable=False,
     )
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
@@ -814,3 +865,8 @@ class CustomerHistory(Base):
         server_default=func.current_timestamp(),
     )
     remarks: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+    updated_by_user = relationship("User",foreign_keys=[updated_by])
+    customer = relationship("Customer")
+
+

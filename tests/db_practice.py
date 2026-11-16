@@ -4,7 +4,7 @@ from unittest import result
 from sqlalchemy import select, text
 
 from app.database import SessionLocal
-from app.database_models import ProductCategory, User, Product
+from tests.database_models import ProductCategory, User, Product
 
 
 def main():

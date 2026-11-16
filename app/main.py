@@ -1,44 +1,25 @@
+from fastapi import FastAPI
 
-from fastapi import FastAPI,Depends
-from sqlalchemy.orm import Session
-from sqlalchemy import select
+from authentication.router import router as authentication_router
 
-from app.database import get_db
-from app.database_models import Product
-
-
+from modules.users.router import router as users_router
+from modules.inventory.router import router as inventory_router
+from modules.customers.router import router as customers_router
+from modules.partners.router import router as partners_router
+from modules.orders.router import router as orders_router
+from modules.history.router import router as history_router
 
 app = FastAPI(title="Inventory Management API")
 
-
+app.include_router(authentication_router)
+app.include_router(users_router)
+app.include_router(inventory_router)
+app.include_router(customers_router)
+app.include_router(partners_router)
+app.include_router(orders_router)
+app.include_router(history_router)
 
 
 @app.get("/")
 def home():
     return {"message": "Inventory Management API is running"}
-
-
-@app.get("/products")
-def get_products(db: Session = Depends(get_db)):
-    # 1. Create SELECT query
-    statement = select(Product).order_by(Product.product_id)
-
-    # 2. Execute query and retrieve products
-    products = db.execute(statement).scalars().all()
-
-    # 3. Return product information
-    return [
-        {
-            "product_id": product.product_id,
-            "sku": product.sku,
-            "product_name": product.product_name,
-            "description": product.product_description,
-            "category_id": product.category_id,
-            "cost_price": str(product.cost_price),
-            "sale_price": str(product.sale_price),
-            "stock_quantity": product.stock_quantity,
-            "reorder_level": product.reorder_level,
-            "status": product.status
-        }
-        for product in products
-    ]
